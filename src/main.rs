@@ -12,29 +12,18 @@ mod utilities;
 
 use actix_web::{middleware::Logger, web::Data, web::JsonConfig, App, HttpServer};
 use db::init_pool;
-use tracing::{debug, warn};
-use tracing_subscriber::{
-    filter::EnvFilter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
-};
+use tracing::debug;
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::config::get_config;
 use crate::errors::json_error_handler;
-use crate::utilities::is_valid_log_level;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Clone the config to prevent the mutex from being locked
     // See https://rust-lang.github.io/rust-clippy/master/index.html#await_holding_lock
     let config = get_config().await.clone();
-    let filter = if is_valid_log_level(&config.log_level) {
-        EnvFilter::try_new(&config.log_level).unwrap_or_else(|_e| {
-            warn!("Error parsing log level: {}", &config.log_level);
-            std::process::exit(1);
-        })
-    } else {
-        warn!("Invalid log level: {}", config.log_level);
-        std::process::exit(1);
-    };
+    let filter = config.get_log_level_as_filter();
 
     tracing_subscriber::registry()
         .with(filter)
